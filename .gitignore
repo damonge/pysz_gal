@@ -1,0 +1,5 @@
+/pysz_gal/source/*.o
+/pysz_gal/source/*.mod
+/pysz_gal/source/calc_cl
+/pysz_gal/pysz.pyc
+memo.txt
