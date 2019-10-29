@@ -1,7 +1,11 @@
 #define MAXSIZE 4096
 SUBROUTINE calc_cl(h0_in, obh2_in, och2_in, mnu_in, mass_bias_in,&
+                   Mcut_in, M1_in, kappa_in, sigma_Ncen_in, alp_Nsat_in,&
+                   rmax_in, rgs_in,&
                    pk_nk_in, pk_nz_in, k_arr, pk_arr,&
-                   nl_in, ell_arr, cl_yy, tll, flag_nu_in, flag_tll_in)
+                   dndz_in, nz_dndz_in,&
+                   z1_in,z2_in,&
+                   nl_in, ell_arr, cl_gg, cl_gy, tll, flag_nu_in, flag_tll_in)
   !$ USE omp_lib
   use cosmo
   use global_var
@@ -10,22 +14,33 @@ SUBROUTINE calc_cl(h0_in, obh2_in, och2_in, mnu_in, mass_bias_in,&
   use angular_distance
   use mod_ptilde
   IMPLICIT none
-  integer, intent(IN) :: pk_nk_in, pk_nz_in, nl_in
+  integer, intent(IN) :: pk_nk_in, pk_nz_in, nl_in, nz_dndz_in
   double precision, intent(IN) :: h0_in, obh2_in, och2_in, mnu_in
   double precision, intent(IN) :: mass_bias_in
+  double precision, intent(IN) :: Mcut_in, M1_in, kappa_in, sigma_Ncen_in, alp_Nsat_in
+  double precision, intent(IN) :: rmax_in, rgs_in
+  double precision, intent(IN) :: z1_in, z2_in
+  double precision, dimension(0:nz_dndz_in-1) :: dndz_in
   double precision, dimension(0:pk_nk_in-1,0:pk_nz_in-1), intent(IN) :: k_arr, pk_arr
   double precision, dimension(0:nl_in-1), intent(INOUT) :: ell_arr
-  double precision, dimension(0:nl_in-1,0:1), intent(INOUT) :: cl_yy
-  double precision, dimension(0:nl_in-1,0:nl_in-1), intent(INOUT) :: tll
+  double precision, dimension(0:nl_in-1,0:1), intent(INOUT) :: cl_gg, cl_gy
+  double precision, dimension(0:nl_in*2-1,0:nl_in*2-1), intent(INOUT) :: tll
   integer, intent(IN) :: flag_nu_in, flag_tll_in
 
   nl = nl_in
+  z1 = z1_in
+  z2 = z2_in
 
   ! flag for neutrino prescription
   flag_nu = flag_nu_in
 
   ! Calc Tll or not
   flag_tll = flag_tll_in
+
+  ! read dNdz
+  nz_dndz = nz_dndz_in
+  allocate(dndz_arr(nz_dndz))
+  dndz_arr(1:nz_dndz) = dndz_in(0:nz_dndz-1)
 
   ! read in linear P(k,z)
   pk_nk = pk_nk_in
@@ -49,6 +64,16 @@ SUBROUTINE calc_cl(h0_in, obh2_in, och2_in, mnu_in, mass_bias_in,&
   alp_p = 0.12d0
   beta = 0.d0
 
+  !! galaxy parameters
+  Mcut = Mcut_in
+  M1 = M1_in
+  kappa = kappa_in
+  sigma_Ncen = sigma_Ncen_in
+  alp_Nsat = alp_Nsat_in
+  rmax = rmax_in
+  rgs = rgs_in
+
+
   ! preface
   !! ptilde
   call setup_ptilde
@@ -61,33 +86,35 @@ SUBROUTINE calc_cl(h0_in, obh2_in, och2_in, mnu_in, mass_bias_in,&
 
   ! calculate Cls
   !$OMP barrier
-  call calc_cl_yy(ell_arr,cl_yy,tll)
+  call calc_cl_gg_gy(ell_arr,cl_gg,cl_gy,tll)
   !$OMP barrier
 
   call close_linearpk
   call close_sigma
   call close_ptilde
+  deallocate(dndz_arr)
   !$OMP barrier
 
 !===============================================================
 CONTAINS
 !===============================================================
-  SUBROUTINE calc_cl_yy(ell_arr,cl_yy,tll)
+  SUBROUTINE calc_cl_gg_gy(ell_arr,cl_gg,cl_gy,tll)
     !$ USE omp_lib
     USE global_var
     IMPLICIT none
-    double precision, intent(INOUT) :: cl_yy(0:nl-1,0:1)
-    double precision, intent(INOUT) :: tll(0:nl-1,0:nl-1)
+    double precision, intent(INOUT) :: cl_gg(0:nl-1,0:1)
+    double precision, intent(INOUT) :: cl_gy(0:nl-1,0:1)
+    double precision, intent(INOUT) :: tll(0:nl*2-1,0:nl*2-1)
     double precision, intent(IN) :: ell_arr(:)
     double precision, allocatable :: cls_th_1h(:,:), cls_th_2h(:,:)
-    double precision :: ell
     integer :: i, j, k, nth, ith
     double precision :: lnx, lnx1, lnx2, dlnx
     double precision :: lnM, lnM1, lnM2, dlnM
     double precision :: fac1, fac2
-    double precision :: intg_1h(nl), intg_2h(nl), intg_tll(nl,nl)
+    double precision :: intg_1h(nl*2), intg_2h(nl*2), intg_tll(nl*2,nl*2)
 
-    cl_yy(:,:) = 0.d0
+    cl_gg(:,:) = 0.d0
+    cl_gy(:,:) = 0.d0
     intg_tll(:,:) = 0.d0
 
     lnx1=dlog(1d0+z1); lnx2 = dlog(1d0+z2)
@@ -100,7 +127,7 @@ CONTAINS
     nth = omp_get_num_threads()
     ith = omp_get_thread_num()
     !$OMP single
-    allocate(cls_th_1h(nl,nth),cls_th_2h(nl,nth))
+    allocate(cls_th_1h(nl*2,nth),cls_th_2h(nl*2,nth))
     cls_th_1h(:,:) = 0.d0
     cls_th_2h(:,:) = 0.d0
     !$OMP end single
@@ -110,7 +137,7 @@ CONTAINS
       fac1 = 1.d0
       if (j == 1 .or. j == nz+1) fac1 = 0.5d0
       ! mass integration
-      call qgaus2_n20_arr(integrand_1h,lnM1,lnM2,intg_1h,lnx,ell_arr)
+      call qgaus2_n20_arr_gy(integrand_1h,lnM1,lnM2,intg_1h,lnx,ell_arr)
       cls_th_1h(:,ith+1) = cls_th_1h(:,ith+1)+intg_1h*dlnx*fac1
     end do 
     !$OMP end do
@@ -129,11 +156,16 @@ CONTAINS
     end do
     !$OMP end do
     !$OMP barrier
+
     !$OMP end parallel
 
     do i = 1, nl
-      cl_yy(i-1,0) = sum(cls_th_1h(i,1:nth))
-      cl_yy(i-1,1) = sum(cls_th_2h(i,1:nth))
+      ! 1h term
+      cl_gg(i-1,0) = sum(cls_th_1h(i,1:nth))
+      cl_gy(i-1,0) = sum(cls_th_1h(i+nl,1:nth))
+      ! 2h term
+      cl_gg(i-1,1) = sum(cls_th_2h(i,1:nth))
+      cl_gy(i-1,1) = sum(cls_th_2h(i+nl,1:nth))
     end do
 
     !$OMP single
@@ -159,33 +191,41 @@ CONTAINS
       tll = tll/4/pi
     end if
 
-  END SUBROUTINE calc_cl_yy
-!===============================================================
-  FUNCTION integrand_1h(lnM, lnx, ell_arr)
+  END SUBROUTINE calc_cl_gg_gy
+!!===============================================================
+  FUNCTION integrand_1h(lnM200c, lnx, ell_arr)
     USE global_var
     USE cosmo
     USE mf_module
     USE angular_distance
     IMPLICIT none
-    double precision :: integrand_1h(nl)
-    double precision, intent(IN) :: lnx, lnM, ell_arr(nl)
-    double precision :: uy, ell
+    double precision :: integrand_1h(nl*2)
+    double precision, intent(IN) :: lnx, lnM200c, ell_arr(nl)
+    double precision :: ngz, uy, ug, ell
     double precision :: z, dvdz, fac, da
-    double precision :: calc_uy
+    double precision :: calc_uy, calc_ug, calc_ngz
+    double precision :: M500c, lnM500c
     integer :: i
-    external calc_uy, da
+    external calc_uy, calc_ug, calc_ngz, da
 
     integrand_1h(:) = 0d0
 
+    z = dexp(lnx)-1d0
+    call M200_to_Mdel(dexp(lnM200c),z,500d0,M500c)
+    lnM500c = dlog(M500c)
+
+    ngz = calc_ngz(z)
     do i = 1, nl
       ell = ell_arr(i)
-      uy = calc_uy(lnx,lnM,ell)
-      integrand_1h(i) = uy*uy
+      uy = calc_uy(lnx,lnM500c,ell)
+      ug = calc_ug(lnx,lnM200c,ell)
+      integrand_1h(i) = ug*ug/ngz**2d0
+      integrand_1h(i+nl) = ug*uy/ngz
     end do
 
     z = dexp(lnx)-1d0
     dvdz = (1d0+z)**2d0*da(z)**2d0*2998d0/Ez(z) ! h^-3 Mpc^3
-    fac = dvdz*(1+z)*dndlnMh_500c_T08(lnM,z)
+    fac = dvdz*(1+z)*dndlnMh_500c_T08(lnM500c,z)
 
     integrand_1h = integrand_1h*fac
 
@@ -200,27 +240,40 @@ CONTAINS
     USE linearpk_z
     IMPLICIT none
     double precision, intent(IN) :: lnx, ell_arr(nl)
-    double precision, intent(INOUT) :: intg_2h(nl)
+    double precision, intent(INOUT) :: intg_2h(nl*2)
     double precision :: ell
     double precision :: z, dvdz, fac, da, chi
-    double precision :: by, lnM1, lnM2, lnM, dlnM
-    double precision :: integrand_by
+    double precision :: by, bg, lnM1, lnM2, lnM, dlnM
+    double precision :: integrand_by, integrand_bg
     double precision :: linear_pk
     double precision :: pk1, pk2, pk_z, dz
-    integer :: il, iz
-    external linear_pk, integrand_by
+    double precision :: calc_ngz, ngz
+    integer :: il, iz, im
+    external linear_pk, integrand_by, integrand_bg, calc_ngz
+
+    lnM1 = dlog(Mmin); lnM2 = dlog(Mmax)
 
     intg_2h = 0d0
     z = dexp(lnx)-1d0
-    dz = (z2-0d0)/(pk_nz-1)
+    ! dz = (z2-0d0)/(pk_nz-1)
+    dz = (4d0-0d0)/(pk_nz-1)
     iz = int((z-1d-5)/dz)
+
+    ngz = calc_ngz(z)
 
     do il = 1, nl
       ell = ell_arr(il)
 
       ! SZ term
-      lnM1 = dlog(Mmin); lnM2 = dlog(Mmax)
       call qgaus2(integrand_by,lnM1,lnM2,by,z,ell) ! Gaussian quadrature, SZ bias
+
+      ! galaxy term
+      dlnM = (lnM2-lnM1)/nm
+      bg = (integrand_bg(lnM1,z,ell)+integrand_bg(lnM2,z,ell))*(0.5d0*dlnM)
+      do im = 2, nm-1
+        lnM = lnM1+dlnM*(im-1)
+        bg = bg+integrand_bg(lnM,z,ell)*dlnM
+      end do
   
       dvdz=(1d0+z)**2d0*da(z)**2d0*2998d0/Ez(z)
       chi = da(z)*(1.d0+z)
@@ -234,41 +287,51 @@ CONTAINS
 
       fac = pk_z*dvdz*(1d0+z)
   
-      intg_2h(il) = by*by*fac
+      intg_2h(il) = bg*bg*fac/ngz**2
+      intg_2h(il+nl) = bg*by*fac/ngz
     end do
 
     return  
   END SUBROUTINE calc_integrand_2h
 !===============================================================
- FUNCTION integrand_tll(lnM, lnx, ell_arr)
+ FUNCTION integrand_tll(lnM200c, lnx, ell_arr)
     USE global_var
     USE cosmo
     USE mf_module
     USE angular_distance
     IMPLICIT none
-    double precision :: integrand_tll(nl,nl), integrand_1h(nl,1)
-    double precision, intent(IN) :: lnx, lnM, ell_arr(nl)
-    double precision :: uy, ell
+    double precision :: integrand_tll(nl*2,nl*2), integrand_1h(nl*2,1)
+    double precision, intent(IN) :: lnx, lnM200c, ell_arr(nl)
+    double precision :: uy, ug, ngz, ell
     double precision :: z, dvdz, fac, da
-    double precision :: calc_uy
+    double precision :: calc_uy, calc_ug, calc_ngz
+    double precision :: M500c, lnM500c
     integer :: i
-    external calc_uy, da
-    double precision :: fsky_yy = 0.494d0
+    external calc_uy, calc_ug, calc_ngz, da
+    double precision :: fsky_gg = 1.0, fsky_yy = 0.494d0, fsky_gy
 
+    fsky_gy = sqrt(fsky_gg*fsky_yy)
     integrand_tll(:,:) = 0d0
 
-    do i = 1, nl
+    z = dexp(lnx)-1d0
+    ngz = calc_ngz(z)
+    call M200_to_Mdel(dexp(lnM200c),z,500d0,M500c)
+    lnM500c = dlog(M500c)
+
+    do i = 1, nl*2
       ell = ell_arr(i)
-      uy = calc_uy(lnx,lnM,ell)
-      integrand_1h(i,1) = uy*uy
+      uy = calc_uy(lnx,lnM500c,ell)
+      ug = calc_ug(lnx,lnM200c,ell)
+      integrand_1h(i,1) = ug*ug/sqrt(fsky_gg)/ngz**2
+      integrand_1h(i+nl,1) = ug*uy/sqrt(fsky_gy)/ngz
     end do
 
-    integrand_1h = integrand_1h/sqrt(fsky_yy)
+    integrand_1h = integrand_1h
     integrand_tll = matmul(integrand_1h,transpose(integrand_1h))
 
     z = dexp(lnx)-1d0
     dvdz = (1d0+z)**2d0*da(z)**2d0*2998d0/Ez(z) ! h^-3 Mpc^3
-    fac = dvdz*(1+z)*dndlnMh_500c_T08(lnM,z)
+    fac = dvdz*(1+z)*dndlnMh_500c_T08(lnM500c,z)
 
     integrand_tll = integrand_tll*fac
 

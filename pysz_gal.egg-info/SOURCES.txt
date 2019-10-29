@@ -1,0 +1,12 @@
+MANIFEST.in
+setup.cfg
+setup.py
+pysz_gal/__init__.py
+pysz_gal/pysz_gal.py
+pysz_gal.egg-info/PKG-INFO
+pysz_gal.egg-info/SOURCES.txt
+pysz_gal.egg-info/dependency_links.txt
+pysz_gal.egg-info/not-zip-safe
+pysz_gal.egg-info/requires.txt
+pysz_gal.egg-info/top_level.txt
+pysz_gal/source/calc_cl

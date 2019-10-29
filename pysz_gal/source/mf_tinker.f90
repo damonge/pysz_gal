@@ -81,7 +81,7 @@ END SUBROUTINE intp_mf_params
 DOUBLE PRECISION FUNCTION splint_mf(x,x_arr,y_arr,d2y_arr,nx)
   integer, intent(IN) :: nx
   double precision, intent(IN) :: x, x_arr(nx), y_arr(nx), d2y_arr(nx)
-  integer :: k_low, k_hi, k
+  integer :: k
   double precision :: y
 
   if (x <= x_arr(nx)) then ! spline interpolation

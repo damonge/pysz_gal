@@ -61,18 +61,18 @@ x=(/0.0640568928626056,&
   return
 END SUBROUTINE qgaus2_n20
 !===============================================================
-SUBROUTINE qgaus2_n20_arr(func,a,b,ss,p1,p2) ! func has 2parameter
+SUBROUTINE qgaus2_n20_arr_gy(func,a,b,ss,p1,p2) ! func has 2parameter
   USE global_var
   IMPLICIT none
   interface
     function func(x,p1,p2)
       use global_var
-      double precision :: func(nl)
+      double precision :: func(nl*2)
       double precision, intent(in) :: x, p1, p2(nl)
     end function
   end interface
   double precision, intent(IN) :: a,b,p1,p2(nl)
-  double precision, intent(INOUT) :: ss(nl)
+  double precision, intent(INOUT) :: ss(nl*2)
   integer :: j
 !  double precision :: dx,xm,xr,w(10),x(10)
   double precision :: dx,xm,xr,w(12),x(12)
@@ -125,4 +125,4 @@ x=(/0.0640568928626056,&
 
   ss(:) = xr*ss(:)
   return
-END SUBROUTINE qgaus2_n20_arr
+END SUBROUTINE qgaus2_n20_arr_gy

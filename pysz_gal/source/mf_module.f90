@@ -23,8 +23,8 @@ CONTAINS
     end if
     lnRh = real(dlog(Rh))
 
-    dz = (z2-0d0)/(pk_nz-1)
-    iz = int((z-1d-5)/dz)
+    dz = (z2-z1)/(pk_nz-1)
+    iz = int((z-z1)/dz)
     if (iz < pk_nz-1) then
       c1 = CHEBEV(lnR1,lnR2,c(:,iz+1),ndim,lnRh)
       c2 = CHEBEV(lnR1,lnR2,c(:,iz+2),ndim,lnRh)
@@ -37,10 +37,10 @@ CONTAINS
   END FUNCTION lnnu_500c
 !======================================================================================
   ! CALCULATE MASS FUNCTION
-  DOUBLE PRECISION FUNCTION dndlnMh_500c_T08(lnM500,z)
+  DOUBLE PRECISION FUNCTION dndlnMh_500c_T08(lnM500c,z)
     USE global_var
-    double precision, intent(IN) :: lnM500, z
-    double precision :: m500,omz
+    double precision, intent(IN) :: lnM500c, z
+    double precision :: m500c, omz
     double precision :: Rh
     double precision :: deltac=1.6865d0,mf_500c,dndlnRh,lnnu,dlnnudlnRh
     real :: chebev,lnsigma2,lnRh,dlnsigma2dlnRh
@@ -49,19 +49,23 @@ CONTAINS
     integer :: iz
     external mf_T08_intp
 
-    m500 = dexp(lnM500)
+    m500c = dexp(lnM500c)
     omz = (om0_cb+onu)*(1d0+z)**3d0/Ez(z)**2d0 ! Omega(z); E(z)=H(z)/H0
 
     ! calc dndlnRh
     if (flag_nu == 0) then
-      Rh = (3d0*m500/4d0/pi/(om0_cb+onu)/2.775d11)**(1d0/3d0) ! h^-1 Mpc
+      Rh = (3d0*m500c/4d0/pi/(om0_cb+onu)/2.775d11)**(1d0/3d0) ! h^-1 Mpc
     else if (flag_nu == 1) then
-      Rh = (3d0*m500/4d0/pi/om0_cb/2.775d11)**(1d0/3d0) ! h^-1 Mpc
+      Rh = (3d0*m500c/4d0/pi/om0_cb/2.775d11)**(1d0/3d0) ! h^-1 Mpc
+    else
+      Rh = 0d0
+      print *, "flag_nu err!"
+      stop
     end if
     lnRh = real(dlog(Rh))
 
-    dz = (z2-0d0)/(pk_nz-1)
-    iz = int((z-1d-5)/dz)
+    dz = (z2-z1)/(pk_nz-1)
+    iz = int((z-z1)/dz)
     if (iz < pk_nz-1) then
       c1 = CHEBEV(lnR1,lnR2,c(:,iz+1),ndim,lnRh)
       c2 = CHEBEV(lnR1,lnR2,c(:,iz+2),ndim,lnRh)
@@ -73,7 +77,7 @@ CONTAINS
       lnsigma2 = CHEBEV(lnR1,lnR2,c(:,pk_nz),ndim,lnRh)          ! ln(sigma^2)
       dlnsigma2dlnRh = CHEBEV(lnR1,lnR2,cder(:,pk_nz),ndim,lnRh) ! dln(sigma^2)/dlnRh
     end if
-    lnnu=2d0*dlog(deltac)-dble(lnsigma2) ! ln(nu
+    lnnu=2d0*dlog(deltac)-dble(lnsigma2) ! ln(nu)
     dlnnudlnRh=-dble(dlnsigma2dlnRh)     ! dln(nu)/dlnRh
     dndlnRh = (3d0/4d0/pi)*dlnnudlnRh*mf_T08_intp(lnnu,z,500d0/omz)/Rh**3d0
     dndlnMh_500c_T08 = dndlnRh/3d0 ! in units of h^3 Mpc^-3
