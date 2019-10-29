@@ -39,13 +39,18 @@ class tsz_gal_cl:
                                     POINTER(c_int64), #nz_dndz
                                     POINTER(c_double), #z1
                                     POINTER(c_double), #z2
+                                    POINTER(c_double), #z1_ng
+                                    POINTER(c_double), #z2_ng
                                     POINTER(c_int64), #nl
                                     np.ctypeslib.ndpointer(dtype=np.double), #ell
                                     np.ctypeslib.ndpointer(dtype=np.double), #gg
                                     np.ctypeslib.ndpointer(dtype=np.double), #gy
                                     np.ctypeslib.ndpointer(dtype=np.double), #tll
+                                    POINTER(c_double), #ng(z1<z<z2)
                                     POINTER(c_int64), #flag_nu
-                                    POINTER(c_int64) #flag_tll
+                                    POINTER(c_int64), #flag_tll
+                                    POINTER(c_int64), #nm
+                                    POINTER(c_int64) #nz
                                     ]
         self.fort_lib_cl.calc_cl_.restype = c_void_p
 
@@ -59,7 +64,7 @@ class tsz_gal_cl:
         # Class
         self.cosmo = Class()
 
-    def get_tsz_cl(self,ell_arr,params,dndz,z1,z2):
+    def get_tsz_cl(self,ell_arr,params,dndz,z1,z2,z1_ng,z2_ng,nm,nz):
         self.zmin = z1
         self.zmax = z2
         obh2 = params['obh2']
@@ -128,10 +133,6 @@ class tsz_gal_cl:
             elif flag_nu == 1:
                 pk[i,:] = np.array([self.cosmo.pk_cb(k*h0,pk_zarr[i])*h0**3 for k in kh_arr])
 
-        ####  set variables for fortran codes ###
-        nk = byref(c_int64(self.nk_pk)) # indx_z, indx_k
-        nz = byref(c_int64(self.nz_pk))
-        
         # params
         h0_in = byref(c_double(h0))
         obh2_in = byref(c_double(obh2))
@@ -160,6 +161,7 @@ class tsz_gal_cl:
         cl_gg = np.zeros((2,nl))
         cl_gy = np.zeros((2,nl))
         tll = np.zeros((nl*2,nl*2))
+        ng = c_double(0.0)
         nl = c_int64(nl)
    
         self.fort_lib_cl.calc_cl_(
@@ -167,14 +169,16 @@ class tsz_gal_cl:
                 mass_bias_in, \
                 Mcut_in, M1_in, kappa_in, sigma_Ncen_in, alp_Nsat_in,\
                 rmax_in, rgs_in,\
-                nk, nz,\
+                byref(c_int64(self.nk_pk)), byref(c_int64(self.nz_pk)),\
                 np.array(kh),np.array(pk),\
                 np.array(dndz),nz_dndz,\
                 z1_in, z2_in,\
+                byref(c_double(z1_ng)),byref(c_double(z2_ng)),\
                 nl,np.array(ell_arr),\
-                cl_gg,cl_gy,tll,\
-                flag_nu_in,flag_tll_in\
+                cl_gg,cl_gy,tll,ng,\
+                flag_nu_in,flag_tll_in,\
+                c_int64(nm), c_int64(nz)
                 )
 
         self.cosmo.struct_cleanup()
-        return cl_gg, cl_gy, tll
+        return cl_gg, cl_gy, tll, ng.value

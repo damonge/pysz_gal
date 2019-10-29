@@ -177,12 +177,12 @@
   END FUNCTION integrand_ngz
 !!$================================================================
   DOUBLE PRECISION FUNCTION calc_ngz(z)
+    USE global_var
     IMPLICIT none
     double precision, intent(IN) :: z
     double precision :: ngz
     double precision :: lnM1, lnM2, lnM200c, dlnM
-    double precision :: Mmin=1d10, Mmax=5d15
-    integer :: i,n=51
+    integer :: i
     double precision :: integrand_ngz
     external integrand_ngz
 
@@ -190,11 +190,11 @@
     lnM2=dlog(Mmax) ! maximum mass, h^-1 Msun
 
     ! integrate by the trapezoidal rule
-    dlnM=(lnM2-lnM1)/dble(n-1)
+    dlnM=(lnM2-lnM1)/dble(nm-1)
     ngz=0.d0
     ngz=integrand_ngz(lnM1,z)*(0.5d0*dlnM)
     ngz=ngz+integrand_ngz(lnM2,z)*(0.5d0*dlnM)
-    do i=2, n-1
+    do i=2, nm-1
       lnM200c = lnM1+dble(i-1)*dlnM
       ngz = ngz+integrand_ngz(lnM200c,z)*dlnM
     enddo
@@ -275,3 +275,40 @@ CONTAINS
 !!$================================================================
 END SUBROUTINE M200_to_Mdel
 !!$================================================================
+DOUBLE PRECISION FUNCTION calc_ng(z1_ng,z2_ng)
+  USE cosmo
+  USE angular_distance
+  USE global_var
+  IMPLICIT none
+  integer :: i
+  double precision, intent(IN) :: z1_ng, z2_ng
+  double precision :: z,lnx,lnx1,lnx2,dlnx
+  double precision :: dvdz, da
+  double precision :: calc_ngz
+  double precision :: ng
+  external calc_ngz
+
+  ng = 0d0
+
+  lnx1=dlog(1d0+z1_ng)
+  lnx2=dlog(1d0+z2_ng)
+  dlnx=(lnx2-lnx1)/nz
+
+  ! trapezoidal integration
+  dvdz=(1d0+z1)**2d0*da(z1)**2d0*2998d0/Ez(z1)
+  ng = calc_ngz(z1)*dvdz*(1d0+z1)*(0.5d0*dlnx)
+  dvdz=(1d0+z2)**2d0*da(z2)**2d0*2998d0/Ez(z2)
+  ng = ng+calc_ngz(z2)*dvdz*(1d0+z2)*(0.5d0*dlnx)
+  do i=2, nz
+    lnx = lnx1+dble(i-1)*dlnx
+    z = dexp(lnx)-1.d0
+    dvdz=(1d0+z)**2d0*da(z)**2d0*2998d0/Ez(z)
+    ng = ng+calc_ngz(z)*dvdz*(1+z)*dlnx
+  enddo
+  ng = ng*4.d0*3.1415926535d0
+
+  calc_ng = ng
+  return
+END FUNCTION calc_ng
+!!$================================================================
+

@@ -26,7 +26,7 @@
 !-----------------------------------------------------------------------------
 MODULE LinearPk_z
   IMPLICIT none
-  INTEGER :: ndata,nz
+  INTEGER :: ndata !,nz
   DOUBLE PRECISION, dimension(:,:), allocatable :: xa,ya,y2a
   DOUBLE PRECISION :: kmin_in, kmax_in
 contains

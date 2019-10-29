@@ -4,8 +4,9 @@ SUBROUTINE calc_cl(h0_in, obh2_in, och2_in, mnu_in, mass_bias_in,&
                    rmax_in, rgs_in,&
                    pk_nk_in, pk_nz_in, k_arr, pk_arr,&
                    dndz_in, nz_dndz_in,&
-                   z1_in,z2_in,&
-                   nl_in, ell_arr, cl_gg, cl_gy, tll, flag_nu_in, flag_tll_in)
+                   z1_in,z2_in,z1_ng,z2_ng,&
+                   nl_in, ell_arr, cl_gg, cl_gy, tll, ng, flag_nu_in, flag_tll_in,&
+                   nm_in, nz_in)
   !$ USE omp_lib
   use cosmo
   use global_var
@@ -19,13 +20,21 @@ SUBROUTINE calc_cl(h0_in, obh2_in, och2_in, mnu_in, mass_bias_in,&
   double precision, intent(IN) :: mass_bias_in
   double precision, intent(IN) :: Mcut_in, M1_in, kappa_in, sigma_Ncen_in, alp_Nsat_in
   double precision, intent(IN) :: rmax_in, rgs_in
-  double precision, intent(IN) :: z1_in, z2_in
+  double precision, intent(IN) :: z1_in, z2_in, z1_ng, z2_ng
   double precision, dimension(0:nz_dndz_in-1) :: dndz_in
   double precision, dimension(0:pk_nk_in-1,0:pk_nz_in-1), intent(IN) :: k_arr, pk_arr
   double precision, dimension(0:nl_in-1), intent(INOUT) :: ell_arr
   double precision, dimension(0:nl_in-1,0:1), intent(INOUT) :: cl_gg, cl_gy
   double precision, dimension(0:nl_in*2-1,0:nl_in*2-1), intent(INOUT) :: tll
+  double precision, intent(INOUT) :: ng
   integer, intent(IN) :: flag_nu_in, flag_tll_in
+  integer, intent(IN) :: nm_in, nz_in
+  double precision :: calc_ng
+  external calc_ng
+
+  ! precision of mass and z integration
+  nz = nz_in
+  nm = nm_in
 
   nl = nl_in
   z1 = z1_in
@@ -73,8 +82,7 @@ SUBROUTINE calc_cl(h0_in, obh2_in, och2_in, mnu_in, mass_bias_in,&
   rmax = rmax_in
   rgs = rgs_in
 
-
-  ! preface
+  !!!! preface !!!!
   !! ptilde
   call setup_ptilde
 
@@ -83,10 +91,12 @@ SUBROUTINE calc_cl(h0_in, obh2_in, och2_in, mnu_in, mass_bias_in,&
 
   !! compute and tabulate da(z) 
   call setup_da
+  !!!!!!!!!!!!!!!!!
 
-  ! calculate Cls
+  ! calculate Cls ang Ng(z1 < z < z2)
   !$OMP barrier
   call calc_cl_gg_gy(ell_arr,cl_gg,cl_gy,tll)
+  ng = calc_ng(z1_ng,z2_ng)
   !$OMP barrier
 
   call close_linearpk
@@ -121,9 +131,10 @@ CONTAINS
     dlnx = (lnx2-lnx1)/nz
   
     lnM1=dlog(Mmin); lnM2=dlog(Mmax)
+    dlnM = (lnM2-lnM1)/nm
     
     ! 1-halo term
-    !$OMP parallel private(j,lnx,fac1,lnM,intg_1h,intg_2h,ith), shared(cls_th_1h,cls_th_2h,nth,dlnx)
+    !$OMP parallel private(i,j,lnx,fac1,lnM,intg_1h,intg_2h,ith), shared(cls_th_1h,cls_th_2h,nth,dlnx)
     nth = omp_get_num_threads()
     ith = omp_get_thread_num()
     !$OMP single
@@ -137,7 +148,22 @@ CONTAINS
       fac1 = 1.d0
       if (j == 1 .or. j == nz+1) fac1 = 0.5d0
       ! mass integration
-      call qgaus2_n20_arr_gy(integrand_1h,lnM1,lnM2,intg_1h,lnx,ell_arr)
+      ! trapezoidal
+      intg_1h = (integrand_1h(lnM1,lnx,ell_arr)+integrand_1h(lnM2,lnx,ell_arr))*(0.5d0*dlnM)
+      do i = 2, nm
+        lnM = lnM1+dlnM*(i-1)
+        intg_1h = intg_1h+integrand_1h(lnM,lnx,ell_arr)*dlnM
+      end do
+      ! ! simpson
+      ! intg_1h = integrand_1h(lnM1,lnx,ell_arr)+integrand_1h(lnM2,lnx,ell_arr)
+      ! do i = 1, nm, 2
+      !   intg_1h = intg_1h+4.d0*integrand_1h(lnM1+dlnM*i,lnx,ell_arr)
+      ! end do
+      ! do i = 2, nm, 2
+      !   intg_1h = intg_1h+2.d0*integrand_1h(lnM1+dlnM*i,lnx,ell_arr)
+      ! end do
+      ! intg_1h = intg_1h*dlnM/3d0
+      ! call qgaus2_n20_arr_gy(integrand_1h,lnM1,lnM2,intg_1h,lnx,ell_arr)
       cls_th_1h(:,ith+1) = cls_th_1h(:,ith+1)+intg_1h*dlnx*fac1
     end do 
     !$OMP end do
@@ -145,9 +171,10 @@ CONTAINS
 
     !$OMP barrier
     ! 2-halo term
-    dlnx = (lnx2-lnx1)/nz_2h
+    ! dlnx = (lnx2-lnx1)/nz_2h
     !$OMP do
-    do j = 1, nz_2h+1
+    ! do j = 1, nz_2h+1
+    do j = 1, nz+1
       lnx = lnx1+dlnx*(j-1)
       fac1 = 1.d0
       if (j == 1 .or. j == nz_2h+1) fac1 = 0.5d0
