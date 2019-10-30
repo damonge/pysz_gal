@@ -3,7 +3,7 @@ MODULE global_var
   double precision :: mass_bias, alp_p, beta
   double precision :: z1 = 1.d-5, z2 = 4d0
   integer :: nz_dndz
-  double precision :: Mmin = 1d10, Mmax = 5d15
+  double precision :: Mmin = 1d10, Mmax = 1d16
   integer :: nz = 1001, nz_2h = 100
   integer :: nm = 51
   integer :: nz_tll = 2001, nm_tll = 201
