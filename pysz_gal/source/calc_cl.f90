@@ -282,9 +282,8 @@ CONTAINS
 
     intg_2h = 0d0
     z = dexp(lnx)-1d0
-    ! dz = (z2-0d0)/(pk_nz-1)
-    dz = (4d0-0d0)/(pk_nz-1)
-    iz = int((z-1d-5)/dz)
+    dz = (z2-z1)/(pk_nz-1)
+    iz = int((z-z1)/dz)
 
     ngz = calc_ngz(z)
 
