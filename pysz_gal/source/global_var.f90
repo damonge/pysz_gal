@@ -6,7 +6,6 @@ MODULE global_var
   double precision :: Mmin = 1d10, Mmax = 1d16
   integer :: nz = 1001, nz_2h = 100
   integer :: nm = 51
-  integer :: nz_tll = 2001, nm_tll = 201
   integer :: flag_nu = 0 ! 0:'tot', 1:'cb'
   integer :: flag_tll = 0 ! 0: not calc, 1: calc
   integer :: pk_nz, pk_nk

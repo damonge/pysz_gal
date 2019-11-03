@@ -116,11 +116,11 @@ CONTAINS
     double precision, intent(INOUT) :: cl_gy(0:nl-1,0:1)
     double precision, intent(INOUT) :: tll(0:nl*2-1,0:nl*2-1)
     double precision, intent(IN) :: ell_arr(:)
-    double precision, allocatable :: cls_th_1h(:,:), cls_th_2h(:,:)
-    integer :: i, j, k, nth, ith
+    double precision, allocatable :: cls_th_1h(:,:), cls_th_2h(:,:), tll_th(:,:,:)
+    integer :: i, j, nth, ith
     double precision :: lnx, lnx1, lnx2, dlnx
     double precision :: lnM, lnM1, lnM2, dlnM
-    double precision :: fac1, fac2
+    double precision :: fac1
     double precision :: intg_1h(nl*2), intg_2h(nl*2), intg_tll(nl*2,nl*2)
 
     cl_gg(:,:) = 0.d0
@@ -163,6 +163,7 @@ CONTAINS
       !   intg_1h = intg_1h+2.d0*integrand_1h(lnM1+dlnM*i,lnx,ell_arr)
       ! end do
       ! intg_1h = intg_1h*dlnM/3d0
+      ! qgaus
       ! call qgaus2_n20_arr_gy(integrand_1h,lnM1,lnM2,intg_1h,lnx,ell_arr)
       cls_th_1h(:,ith+1) = cls_th_1h(:,ith+1)+intg_1h*dlnx*fac1
     end do 
@@ -177,7 +178,7 @@ CONTAINS
     do j = 1, nz+1
       lnx = lnx1+dlnx*(j-1)
       fac1 = 1.d0
-      if (j == 1 .or. j == nz_2h+1) fac1 = 0.5d0
+      if (j == 1 .or. j == nz+1) fac1 = 0.5d0
       call calc_integrand_2h(lnx,ell_arr,intg_2h)
       cls_th_2h(:,ith+1) = cls_th_2h(:,ith+1)+intg_2h*dlnx*fac1
     end do
@@ -201,21 +202,41 @@ CONTAINS
 
     ! Tll
     if (flag_tll == 1) then
-      dlnM = (lnM2-lnM1)/nm_tll
-      dlnx = (lnx2-lnx1)/nz_tll
-      do j = 1, nz_tll+1
+      !$OMP parallel private(i,j,lnx,fac1,lnM,intg_tll,ith), shared(tll_th,nth)
+      nth = omp_get_num_threads()
+      ith = omp_get_thread_num()
+      !$OMP single
+      allocate(tll_th(nl*2,nl*2,nth))
+      tll_th(:,:,:) = 0.d0
+      !$OMP end single
+      !$OMP do
+      do j = 1, nz+1
         lnx = lnx1+dlnx*(j-1)
         fac1 = 1.d0
         if (j == 1 .or. j == nz+1) fac1 = 0.5d0
-        do k =1, nm_tll+1
-          lnM = lnM1+dlnM*(k-1)
-          fac2 = 1.d0
-          if (k == 1 .or. k == nm_tll+1) fac2 = 0.5d0
-          intg_tll = integrand_tll(lnM,lnx,ell_arr)
-          tll(0:nl-1,0:nl-1) = tll(0:nl-1,0:nl-1)+intg_tll*dlnM*dlnx*fac1*fac2
+        ! mass integration
+        ! trapezoidal
+        intg_tll = (integrand_tll(lnM1,lnx,ell_arr)+integrand_tll(lnM2,lnx,ell_arr))*(0.5d0*dlnM)
+        do i = 2, nm
+          lnM = lnM1+dlnM*(i-1)
+          intg_tll = intg_tll+integrand_tll(lnM,lnx,ell_arr)*dlnM
+        end do
+        tll_th(:,:,ith+1) = tll_th(:,:,ith+1)+intg_tll*dlnx*fac1
+      end do
+      !$OMP end do
+      !$OMP barrier
+      !$OMP end parallel
+
+      do i = 1, nl*2
+        do j = 1, nl*2
+          tll(i-1,j-1) = sum(tll_th(i,j,1:nth))
         end do
       end do
-      tll = tll/4/pi
+
+      !$OMP single
+      deallocate(tll_th)
+      !$OMP end single
+ 
     end if
 
   END SUBROUTINE calc_cl_gg_gy
@@ -306,7 +327,8 @@ CONTAINS
       if (iz < pk_nz-1) then
         pk1 = linear_pk(ell/chi,iz+1)
         pk2 = linear_pk(ell/chi,iz+2)
-        pk_z = (pk2-pk1)/dz*(z-dz*iz)+pk1
+        ! pk_z = (pk2-pk1)/dz*(z-dz*iz)+pk1
+        pk_z = (pk2-pk1)/dz*(z-(z1+dz*iz))+pk1
       else
         pk_z = linear_pk(ell/chi,pk_nz) 
       end if
@@ -334,9 +356,7 @@ CONTAINS
     double precision :: M500c, lnM500c
     integer :: i
     external calc_uy, calc_ug, calc_ngz, da
-    double precision :: fsky_gg = 1.0, fsky_yy = 0.494d0, fsky_gy
 
-    fsky_gy = sqrt(fsky_gg*fsky_yy)
     integrand_tll(:,:) = 0d0
 
     z = dexp(lnx)-1d0
@@ -344,15 +364,14 @@ CONTAINS
     call M200_to_Mdel(dexp(lnM200c),z,500d0,M500c)
     lnM500c = dlog(M500c)
 
-    do i = 1, nl*2
+    do i = 1, nl
       ell = ell_arr(i)
       uy = calc_uy(lnx,lnM500c,ell)
       ug = calc_ug(lnx,lnM200c,ell)
-      integrand_1h(i,1) = ug*ug/sqrt(fsky_gg)/ngz**2
-      integrand_1h(i+nl,1) = ug*uy/sqrt(fsky_gy)/ngz
+      integrand_1h(i,1) = ug*ug/ngz**2
+      integrand_1h(i+nl,1) = ug*uy/ngz
     end do
 
-    integrand_1h = integrand_1h
     integrand_tll = matmul(integrand_1h,transpose(integrand_1h))
 
     z = dexp(lnx)-1d0

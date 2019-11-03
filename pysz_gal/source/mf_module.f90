@@ -28,7 +28,8 @@ CONTAINS
     if (iz < pk_nz-1) then
       c1 = CHEBEV(lnR1,lnR2,c(:,iz+1),ndim,lnRh)
       c2 = CHEBEV(lnR1,lnR2,c(:,iz+2),ndim,lnRh)
-      lnsigma2 = (c2-c1)/dz*(z-dz*iz)+c1 ! ln(sigma^2)
+      ! lnsigma2 = (c2-c1)/dz*(z-dz*iz)+c1 ! ln(sigma^2)
+      lnsigma2 = (c2-c1)/dz*(z-(z1+dz*iz))+c1 ! ln(sigma^2)
     else 
       lnsigma2 = CHEBEV(lnR1,lnR2,c(:,pk_nz),ndim,lnRh)          ! ln(sigma^2)
     end if
@@ -69,10 +70,11 @@ CONTAINS
     if (iz < pk_nz-1) then
       c1 = CHEBEV(lnR1,lnR2,c(:,iz+1),ndim,lnRh)
       c2 = CHEBEV(lnR1,lnR2,c(:,iz+2),ndim,lnRh)
-      lnsigma2 = (c2-c1)/dz*(z-dz*iz)+c1 ! ln(sigma^2)
+      lnsigma2 = (c2-c1)/dz*(z-(z1+dz*iz))+c1 ! ln(sigma^2)
       cder1 = CHEBEV(lnR1,lnR2,cder(:,iz+1),ndim,lnRh)
       cder2 = CHEBEV(lnR1,lnR2,cder(:,iz+2),ndim,lnRh)
-      dlnsigma2dlnRh = (cder2-cder1)/dz*(z-dz*iz)+cder1 ! ln(sigma^2)
+      ! dlnsigma2dlnRh = (cder2-cder1)/dz*(z-dz*iz)+cder1 ! ln(sigma^2)
+      dlnsigma2dlnRh = (cder2-cder1)/dz*(z-(z1+dz*iz))+cder1 ! ln(sigma^2)
     else 
       lnsigma2 = CHEBEV(lnR1,lnR2,c(:,pk_nz),ndim,lnRh)          ! ln(sigma^2)
       dlnsigma2dlnRh = CHEBEV(lnR1,lnR2,cder(:,pk_nz),ndim,lnRh) ! dln(sigma^2)/dlnRh
