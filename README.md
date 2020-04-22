@@ -1,4 +1,4 @@
-# pysz_z
+# pysz_gal
 This is the python code for the calculation of the thermal SZ power spectrum and its cross correlation with galaxies.
 The tSZ Cl calculation is based on [the fortran code](https://wwwmpa.mpa-garching.mpg.de/~komatsu/CRL/clusters/szpowerspectrumdks/) devoloped by Eiichiro Komatsu.
 
