@@ -1,7 +1,11 @@
 # pysz_gal
 This is the python code for the calculation of the thermal SZ power spectrum and its cross correlation with galaxies.
-The tSZ Cl calculation is based on [the fortran code](https://wwwmpa.mpa-garching.mpg.de/~komatsu/CRL/clusters/szpowerspectrumdks/) devoloped by Eiichiro Komatsu.
-Please cite [Komatsu and Seljak 2002](https://arxiv.org/abs/astro-ph/0205468) if you use the code in your paper.
+The part of tSZ power spectrum calculation is based on the fortran code [fastsz](https://wwwmpa.mpa-garching.mpg.de/~komatsu/CRL/clusters/szpowerspectrumdks/) devoloped by Eiichiro Komatsu,
+but there are several important updates e.g., treatment of neutrino mass in the calculation of mass function, mass-concentration relation, etc.
+Please see [Makiya et al. 2018](https://arxiv.org/abs/1804.05008) and [Makiya et al. 2020](https://arxiv.org/abs/1907.07870) for the details of the updates and calculation of tSZ-galaxy cross-power spectra.
+
+Another tSZ power spectrum code, [class_sz](https://github.com/borisbolliet/class_sz_public), is also based on the fastsz.
+I have confirmed that the outputs of pysz and class_sz within the numerical uncertainties.
 
 **NOTICE**
 *The code is under developement. Please ask me if you want to use the code in your research project.*
