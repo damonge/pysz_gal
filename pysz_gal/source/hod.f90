@@ -9,7 +9,8 @@ MODULE HOD
     USE global_var
     IMPLICIT none
     double precision, intent(IN) :: M200c
-    Ncen = 5d-1*erfc(log(Mcut/M200c)/2**0.5/sigma_Ncen)
+    !Ncen = 5d-1*erfc(log(Mcut/M200c)/2**0.5/sigma_Ncen)
+    Ncen = 5d-1*erfc(log(Mcut/M200c)/sigma_Ncen)
     return
   END FUNCTION Ncen
 !!====================================================================

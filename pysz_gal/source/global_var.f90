@@ -10,8 +10,12 @@ MODULE global_var
   integer :: flag_tll = 0 ! 0: not calc, 1: calc
   integer :: pk_nz, pk_nk
   double precision :: pi = 3.14159265359d0
+  double precision :: rhocrit = 2.7744948d11
+  !double precision :: rhocrit = 2.775d11
+  double precision :: clight = 2997.92458d0
+  !double precision :: clight = 2998d0
   double precision :: Mcut, M1, kappa, sigma_Ncen, alp_Nsat ! HOD params
   double precision :: rmax, rgs ! satellite dist. params
-  integer :: flag_cst = 0 ! 0: Sa ́nchez-Conde & Prada (2014)
+  integer :: flag_cst = 1 ! 0: Sa ́nchez-Conde & Prada (2014)
   double precision, allocatable :: dndz_arr(:)
 END MODULE global_var

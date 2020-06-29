@@ -272,8 +272,9 @@ CONTAINS
     end do
 
     z = dexp(lnx)-1d0
-    dvdz = (1d0+z)**2d0*da(z)**2d0*2998d0/Ez(z) ! h^-3 Mpc^3
-    fac = dvdz*(1+z)*dndlnMh_500c_T08(lnM500c,z)
+    dvdz = (1d0+z)**2d0*da(z)**2d0*clight/Ez(z) ! h^-3 Mpc^3
+    fac = dvdz*(1+z)*dndlnMh_200c_T08(lnM200c,z)
+    !fac = dvdz*(1+z)*dndlnMh_500c_T08(lnM500c,z)
 
     integrand_1h = integrand_1h*fac
 
@@ -320,17 +321,17 @@ CONTAINS
       do im = 2, nm-1
         lnM = lnM1+dlnM*(im-1)
         bg = bg+integrand_bg(lnM,z,ell)*dlnM
-      end do
+     end do
   
-      dvdz=(1d0+z)**2d0*da(z)**2d0*2998d0/Ez(z)
+      dvdz=(1d0+z)**2d0*da(z)**2d0*clight/Ez(z)
       chi = da(z)*(1.d0+z)
       if (iz < pk_nz-1) then
-        pk1 = linear_pk(ell/chi,iz+1)
-        pk2 = linear_pk(ell/chi,iz+2)
+        pk1 = linear_pk((ell+0.5)/chi,iz+1)
+        pk2 = linear_pk((ell+0.5)/chi,iz+2)
         ! pk_z = (pk2-pk1)/dz*(z-dz*iz)+pk1
         pk_z = (pk2-pk1)/dz*(z-(z1+dz*iz))+pk1
       else
-        pk_z = linear_pk(ell/chi,pk_nz) 
+        pk_z = linear_pk((ell+0.5)/chi,pk_nz) 
       end if
 
       fac = pk_z*dvdz*(1d0+z)
@@ -375,7 +376,7 @@ CONTAINS
     integrand_tll = matmul(integrand_1h,transpose(integrand_1h))
 
     z = dexp(lnx)-1d0
-    dvdz = (1d0+z)**2d0*da(z)**2d0*2998d0/Ez(z) ! h^-3 Mpc^3
+    dvdz = (1d0+z)**2d0*da(z)**2d0*clight/Ez(z) ! h^-3 Mpc^3
     fac = dvdz*(1+z)*dndlnMh_500c_T08(lnM500c,z)
 
     integrand_tll = integrand_tll*fac

@@ -56,9 +56,9 @@ class tsz_gal_cl:
 
         # Calcualtion setup
         self.kmin = 1e-3
-        self.kmax = 5.
+        self.kmax = 100.
         self.zmax = 4. # should be consistent with fortran code
-        self.nk_pk = 200
+        self.nk_pk = 500
         self.nz_pk = 51
 
         # Class
@@ -83,14 +83,14 @@ class tsz_gal_cl:
         flag_nu_logic = params['flag_nu']
         flag_tll_logic = params['flag_tll']
         if type(flag_nu_logic) != bool:
-            print 'flag_nu must be boolean.'
+            print('flag_nu must be boolean.')
             sys.exit()
         if flag_nu_logic:
             flag_nu = 1
         else:
             flag_nu = 0
         if type(flag_tll_logic) != bool:
-            print 'flag_tll must be boolean.'
+            print('flag_tll must be boolean.')
             sys.exit()
         if flag_tll_logic:
             flag_tll = 1
@@ -118,6 +118,7 @@ class tsz_gal_cl:
                     'T_ncdm':0.71611,\
                     'P_k_max_h/Mpc': self.kmax,'z_max_pk':self.zmax,\
                     'deg_ncdm':3.}
+            print(pars)
             self.cosmo.set(pars)
             self.cosmo.compute()
         derived = self.cosmo.get_current_derived_parameters(['100*theta_s','sigma8'])
@@ -187,4 +188,6 @@ class tsz_gal_cl:
                 )
 
         self.cosmo.struct_cleanup()
-        return cl_gg, cl_gy, tll, ng.value, derived
+        # k_h h/Mpc = k / Mpc
+        # P_h Mpc^3/h^3 = P Mpc^3
+        return cl_gg, cl_gy, tll, ng.value, derived, kh_arr*h0, pk_zarr, pk/h0**3

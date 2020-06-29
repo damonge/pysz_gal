@@ -14,11 +14,11 @@
     M200c = dexp(lnM200c)
     z = dexp(lnx)-1d0
 
-    dvdz=(1d0+z)**2d0*da(z)**2d0*2998d0/Ez(z) ! h^-3 Mpc^3
+    dvdz=(1d0+z)**2d0*da(z)**2d0*clight/Ez(z) ! h^-3 Mpc^3
     chi = da(z)*(1.d0+z)
     dchidz = dvdz/chi/chi
 
-    k = ell/chi
+    k = (ell+0.5)/chi
     u3d = u_sat(k,M200c,z)
   
     calc_ug = (1./chi/chi)*(dNdz(z)/dchidz) &
@@ -45,7 +45,7 @@
     z = dexp(lnx)-1d0
   
     ! compute omega and rhoc
-    rhoc=2.775d11*Ez(z)**2d0 ! critical density in units of h^2 M_sun/Mpc^3
+    rhoc=rhocrit*Ez(z)**2d0 ! critical density in units of h^2 M_sun/Mpc^3
   
     M500c = M500c/(mass_bias*(1.d0+z)**beta)
     r500=(3d0*M500c/4d0/pi/500d0/rhoc)**(1d0/3d0) ! h^-1 Mpc
@@ -68,23 +68,23 @@
     use angular_distance
     IMPLICIT none
     double precision, intent(IN) :: lnM200c, z, ell
-    double precision :: M200c, M500c, lnM500c, omega
+    double precision :: M200c, omega
     double precision :: dvdz, chi, da, dchidz
     double precision :: u_sat, dNdz
     external u_sat, dNdz
 
     M200c = dexp(lnM200c)
-    call M200_to_Mdel(M200c,z,500d0,M500c)
-    lnM500c = dlog(M500c)
     omega = (om0_cb+onu)*(1d0+z)**3d0/Ez(z)**2d0
 
-    dvdz=(1d0+z)**2d0*da(z)**2d0*2998d0/Ez(z)
+    dvdz=(1d0+z)**2d0*da(z)**2d0*clight/Ez(z)
     chi = da(z)*(1.d0+z)
     dchidz = dvdz/chi/chi
 
-    integrand_bg = (Ncen(M200c)+Nsat(M200c)*u_sat(ell/chi,M200c,z)) &
-                   *bl_delta(lnnu_500c(lnM500c,z),500d0/omega) &
-                   *dndlnMh_500c_T08(lnM500c,z)
+    integrand_bg = (Ncen(M200c)+Nsat(M200c)*u_sat((ell+0.5)/chi,M200c,z)) &
+                   *bl_delta(lnnu_200c(lnM200c,z),200d0/omega) &
+                   *dndlnMh_200c_T08(lnM200c,z)
+    !               *bl_delta(lnnu_500c(lnM500c,z),500d0/omega) &
+    !               *dndlnMh_200c_T08(lnM200c,z)
     integrand_bg = integrand_bg*(1./chi/chi)*(dNdz(z)/dchidz)
 
   END FUNCTION integrand_bg
@@ -120,7 +120,7 @@
     external c200
   
     c = c200(M200c,z)
-    rhoc=2.775d11*Ez(z)**2d0 ! critical density in units of h^2 M_sun/Mpc^3
+    rhoc=rhocrit*Ez(z)**2d0 ! critical density in units of h^2 M_sun/Mpc^3
     R200c = (3d0*M200c/4d0/pi/200d0/rhoc)**(1d0/3d0) ! R200, h^-1 Mpc
   
     rmax_g = rmax*R200c
@@ -168,11 +168,11 @@
     use HOD
     IMPLICIT none
     double precision, intent(IN) :: lnM200c,z
-    double precision :: M200c, M500c
+    double precision :: M200c
 
     M200c = dexp(lnM200c)
-    call M200_to_Mdel(M200c,z,500d0,M500c)
-    integrand_ngz = (Ncen(M200c)+Nsat(M200c))*dndlnMh_500c_T08(dlog(M500c),z)
+    !integrand_ngz = (Ncen(M200c)+Nsat(M200c))*dndlnMh_500c_T08(dlog(M500c),z)
+    integrand_ngz = (Ncen(M200c)+Nsat(M200c))*dndlnMh_200c_T08(lnM200c, z)
     return
   END FUNCTION integrand_ngz
 !!$================================================================
@@ -295,14 +295,14 @@ DOUBLE PRECISION FUNCTION calc_ng(z1_ng,z2_ng)
   dlnx=(lnx2-lnx1)/nz
 
   ! trapezoidal integration
-  dvdz=(1d0+z1)**2d0*da(z1)**2d0*2998d0/Ez(z1)
+  dvdz=(1d0+z1)**2d0*da(z1)**2d0*clight/Ez(z1)
   ng = calc_ngz(z1)*dvdz*(1d0+z1)*(0.5d0*dlnx)
-  dvdz=(1d0+z2)**2d0*da(z2)**2d0*2998d0/Ez(z2)
+  dvdz=(1d0+z2)**2d0*da(z2)**2d0*clight/Ez(z2)
   ng = ng+calc_ngz(z2)*dvdz*(1d0+z2)*(0.5d0*dlnx)
   do i=2, nz
     lnx = lnx1+dble(i-1)*dlnx
     z = dexp(lnx)-1.d0
-    dvdz=(1d0+z)**2d0*da(z)**2d0*2998d0/Ez(z)
+    dvdz=(1d0+z)**2d0*da(z)**2d0*clight/Ez(z)
     ng = ng+calc_ngz(z)*dvdz*(1+z)*dlnx
   enddo
   ng = ng*4.d0*3.1415926535d0

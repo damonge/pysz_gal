@@ -17,9 +17,9 @@ CONTAINS
  
     ! calc dndlnRh
     if (flag_nu == 0) then
-      Rh = (3d0*m500/4d0/pi/(om0_cb+onu)/2.775d11)**(1d0/3d0) ! h^-1 Mpc
+      Rh = (3d0*m500/4d0/pi/(om0_cb+onu)/rhocrit)**(1d0/3d0) ! h^-1 Mpc
     else if (flag_nu == 1) then
-      Rh = (3d0*m500/4d0/pi/om0_cb/2.775d11)**(1d0/3d0) ! h^-1 Mpc
+      Rh = (3d0*m500/4d0/pi/om0_cb/rhocrit)**(1d0/3d0) ! h^-1 Mpc
     end if
     lnRh = real(dlog(Rh))
 
@@ -36,6 +36,39 @@ CONTAINS
 
     lnnu_500c = 2d0*dlog(deltac)-dble(lnsigma2) ! ln(nu)
   END FUNCTION lnnu_500c
+!======================================================================================
+  DOUBLE PRECISION FUNCTION lnnu_200c(lnM200,z)
+    USE global_var
+    double precision, intent(IN) :: lnM200,z
+    double precision :: m200, Rh
+    double precision :: deltac=1.6865d0
+    double precision :: c1, c2, dz
+    real :: chebev,lnsigma2,lnRh
+    integer :: iz
+
+    m200 = dexp(lnM200)
+ 
+    ! calc dndlnRh
+    if (flag_nu == 0) then
+      Rh = (3d0*m200/4d0/pi/(om0_cb+onu)/rhocrit)**(1d0/3d0) ! h^-1 Mpc
+    else if (flag_nu == 1) then
+      Rh = (3d0*m200/4d0/pi/om0_cb/rhocrit)**(1d0/3d0) ! h^-1 Mpc
+    end if
+    lnRh = real(dlog(Rh))
+
+    dz = (z2-z1)/(pk_nz-1)
+    iz = int((z-z1)/dz)
+    if (iz < pk_nz-1) then
+      c1 = CHEBEV(lnR1,lnR2,c(:,iz+1),ndim,lnRh)
+      c2 = CHEBEV(lnR1,lnR2,c(:,iz+2),ndim,lnRh)
+      ! lnsigma2 = (c2-c1)/dz*(z-dz*iz)+c1 ! ln(sigma^2)
+      lnsigma2 = (c2-c1)/dz*(z-(z1+dz*iz))+c1 ! ln(sigma^2)
+    else 
+      lnsigma2 = CHEBEV(lnR1,lnR2,c(:,pk_nz),ndim,lnRh)          ! ln(sigma^2)
+    end if
+
+    lnnu_200c = 2d0*dlog(deltac)-dble(lnsigma2) ! ln(nu)
+  END FUNCTION lnnu_200c
 !======================================================================================
   ! CALCULATE MASS FUNCTION
   DOUBLE PRECISION FUNCTION dndlnMh_500c_T08(lnM500c,z)
@@ -55,9 +88,9 @@ CONTAINS
 
     ! calc dndlnRh
     if (flag_nu == 0) then
-      Rh = (3d0*m500c/4d0/pi/(om0_cb+onu)/2.775d11)**(1d0/3d0) ! h^-1 Mpc
+      Rh = (3d0*m500c/4d0/pi/(om0_cb+onu)/rhocrit)**(1d0/3d0) ! h^-1 Mpc
     else if (flag_nu == 1) then
-      Rh = (3d0*m500c/4d0/pi/om0_cb/2.775d11)**(1d0/3d0) ! h^-1 Mpc
+      Rh = (3d0*m500c/4d0/pi/om0_cb/rhocrit)**(1d0/3d0) ! h^-1 Mpc
     else
       Rh = 0d0
       print *, "flag_nu err!"
@@ -84,6 +117,54 @@ CONTAINS
     dndlnRh = (3d0/4d0/pi)*dlnnudlnRh*mf_T08_intp(lnnu,z,500d0/omz)/Rh**3d0
     dndlnMh_500c_T08 = dndlnRh/3d0 ! in units of h^3 Mpc^-3
   END FUNCTION dndlnMh_500c_T08
+!======================================================================================
+  ! CALCULATE MASS FUNCTION
+  DOUBLE PRECISION FUNCTION dndlnMh_200c_T08(lnM200c,z)
+    USE global_var
+    double precision, intent(IN) :: lnM200c, z
+    double precision :: m200c, omz
+    double precision :: Rh
+    double precision :: deltac=1.6865d0,mf_200c,dndlnRh,lnnu,dlnnudlnRh
+    real :: chebev,lnsigma2,lnRh,dlnsigma2dlnRh
+    double precision :: mf_T08_intp
+    double precision :: c1, c2, cder1, cder2, dz
+    integer :: iz
+    external mf_T08_intp
+
+    m200c = dexp(lnM200c)
+    omz = (om0_cb+onu)*(1d0+z)**3d0/Ez(z)**2d0 ! Omega(z); E(z)=H(z)/H0
+
+    ! calc dndlnRh
+    if (flag_nu == 0) then
+      Rh = (3d0*m200c/4d0/pi/(om0_cb+onu)/rhocrit)**(1d0/3d0) ! h^-1 Mpc
+    else if (flag_nu == 1) then
+      Rh = (3d0*m200c/4d0/pi/om0_cb/rhocrit)**(1d0/3d0) ! h^-1 Mpc
+    else
+      Rh = 0d0
+      print *, "flag_nu err!"
+      stop
+    end if
+    lnRh = real(dlog(Rh))
+
+    dz = (z2-z1)/(pk_nz-1)
+    iz = int((z-z1)/dz)
+    if (iz < pk_nz-1) then
+      c1 = CHEBEV(lnR1,lnR2,c(:,iz+1),ndim,lnRh)
+      c2 = CHEBEV(lnR1,lnR2,c(:,iz+2),ndim,lnRh)
+      lnsigma2 = (c2-c1)/dz*(z-(z1+dz*iz))+c1 ! ln(sigma^2)
+      cder1 = CHEBEV(lnR1,lnR2,cder(:,iz+1),ndim,lnRh)
+      cder2 = CHEBEV(lnR1,lnR2,cder(:,iz+2),ndim,lnRh)
+      ! dlnsigma2dlnRh = (cder2-cder1)/dz*(z-dz*iz)+cder1 ! ln(sigma^2)
+      dlnsigma2dlnRh = (cder2-cder1)/dz*(z-(z1+dz*iz))+cder1 ! ln(sigma^2)
+    else 
+      lnsigma2 = CHEBEV(lnR1,lnR2,c(:,pk_nz),ndim,lnRh)          ! ln(sigma^2)
+      dlnsigma2dlnRh = CHEBEV(lnR1,lnR2,cder(:,pk_nz),ndim,lnRh) ! dln(sigma^2)/dlnRh
+    end if
+    lnnu=2d0*dlog(deltac)-dble(lnsigma2) ! ln(nu)
+    dlnnudlnRh=-dble(dlnsigma2dlnRh)     ! dln(nu)/dlnRh
+    dndlnRh = (3d0/4d0/pi)*dlnnudlnRh*mf_T08_intp(lnnu,z,200d0/omz)/Rh**3d0
+    dndlnMh_200c_T08 = dndlnRh/3d0 ! in units of h^3 Mpc^-3
+  END FUNCTION dndlnMh_200c_T08
 !======================================================================================
 DOUBLE PRECISION FUNCTION bl_delta(lnnu,delta) ! linear bias factor bl
   DOUBLE PRECISION, intent(IN) :: lnnu, delta
