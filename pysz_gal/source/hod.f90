@@ -23,7 +23,7 @@ MODULE HOD
     Nsat = 0.d0
     if (M200c > kappa*Mcut) then
       Nsat = ((M200c-kappa*Mcut)/M1)**alp_Nsat
-      Nsat = Nsat*Ncen(M200c)
+      !Nsat = Nsat*Ncen(M200c)
     end if
     return
   END FUNCTION Nsat

@@ -22,7 +22,7 @@
     u3d = u_sat(k,M200c,z)
   
     calc_ug = (1./chi/chi)*(dNdz(z)/dchidz) &
-            *abs(2.d0*Nsat(M200c)*u3d+(Nsat(M200c)*u3d)**2.d0)**0.5d0
+            *abs(Ncen(M200c)*(2.d0*Nsat(M200c)*u3d+(Nsat(M200c)*u3d)**2.d0))**0.5d0
 
     return
   END FUNCTION calc_ug
@@ -80,7 +80,7 @@
     chi = da(z)*(1.d0+z)
     dchidz = dvdz/chi/chi
 
-    integrand_bg = (Ncen(M200c)+Nsat(M200c)*u_sat((ell+0.5)/chi,M200c,z)) &
+    integrand_bg = (Ncen(M200c)*(1+Nsat(M200c)*u_sat((ell+0.5)/chi,M200c,z))) &
                    *bl_delta(lnnu_200c(lnM200c,z),200d0/omega) &
                    *dndlnMh_200c_T08(lnM200c,z)
     !               *bl_delta(lnnu_500c(lnM500c,z),500d0/omega) &
@@ -122,6 +122,7 @@
     c = c200(M200c,z)
     rhoc=rhocrit*Ez(z)**2d0 ! critical density in units of h^2 M_sun/Mpc^3
     R200c = (3d0*M200c/4d0/pi/200d0/rhoc)**(1d0/3d0) ! R200, h^-1 Mpc
+    R200c = R200c * (1.d0+z)
   
     rmax_g = rmax*R200c
     a = rmax/rgs*c
@@ -172,7 +173,7 @@
 
     M200c = dexp(lnM200c)
     !integrand_ngz = (Ncen(M200c)+Nsat(M200c))*dndlnMh_500c_T08(dlog(M500c),z)
-    integrand_ngz = (Ncen(M200c)+Nsat(M200c))*dndlnMh_200c_T08(lnM200c, z)
+    integrand_ngz = (Ncen(M200c)*(1+Nsat(M200c)))*dndlnMh_200c_T08(lnM200c, z)
     return
   END FUNCTION integrand_ngz
 !!$================================================================
